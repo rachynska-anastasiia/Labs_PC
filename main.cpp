@@ -12,24 +12,21 @@ using std::thread;
 
 
 //16 cernels in cpu
-static const int threads_num = 10;
-
+static const int threads_num = 16;
 int n=1000;
 
-static void task(int i, vector<vector<int>>& matrix, int end) {
-    for (int j=i+1; j<n; j++) {
-        int temp = matrix[i][j];
-        matrix[i][j] = matrix[j][i];
-        matrix[j][i] = temp;
+static void task(int beginning, vector<vector<int>>& matrix, vector<vector<int>>& result_matrix_pararell, int end) {
+    for (int i = beginning; i < end; i++) {
+        for (int j = 0; j < n; j++) {
+            result_matrix_pararell[j][i] = matrix[i][j];
+        }
     }
 }
 
-void transpose(vector<vector<int>>& matrix, int n) {
+void transpose(vector<vector<int>>& matrix, int n, vector<vector<int>>& result_matrix_posl) {
     for (int i = 0; i < n; i++) {
-        for (int j = i; j < n; j++) {
-            int temp = matrix[i][j];
-            matrix[i][j] = matrix[j][i];
-            matrix[j][i] = temp;
+        for (int j = 0; j < n; j++) {
+            result_matrix_posl[i][j] = matrix[j][i];
         }
     }
 }
@@ -52,14 +49,10 @@ void generateMatrix(vector<vector<int>>& matrix, int n) {
 }
 
 int main() {
-    srand(time(NULL));
-
-
-
-    //cout << "Enter size n of matrix n*n = ";
-    //cin >> n;
-
     vector matrix(n,vector<int>(n));
+    vector result_matrix_posl(n,vector<int>(n));
+    vector result_matrix_pararell(n,vector<int>(n));
+
     cout << "Matrix elements" << endl;
     generateMatrix(matrix, n);
 
@@ -67,7 +60,7 @@ int main() {
 
     auto start = high_resolution_clock::now();
 
-    transpose(matrix, n);
+    transpose(matrix, n, result_matrix_posl);
 
     auto stop = high_resolution_clock::now();
     auto duration = duration_cast<nanoseconds>(stop - start);
@@ -75,21 +68,24 @@ int main() {
 
 
     cout << "Results:" << endl;
-    //printMatrix(matrix, n);
+    //printMatrix(result_matrix_posl, n);
 
     cout << endl;
 
     thread threads[threads_num];
 
     auto new_start = high_resolution_clock::now();
-    int size = int(n / threads_num);
-    if (size == 0) size = 1;
-    int i;
+
+    int size, i;
+    if (n < threads_num) size = 1;
+    else size = int(n / threads_num);
+
+    //cout << size << endl;
 
     for (i = 0; i < threads_num-1; i++) {
-        threads[i] = thread(task, i, ref(matrix), (i+1)*size-1);
+        threads[i] = thread(task, i*size, ref(matrix), ref(result_matrix_pararell), (i+1)*size);
     }
-    threads[threads_num-1] = thread(task, i*size, ref(matrix), n-1);
+    threads[threads_num-1] = thread(task, i*size, ref(matrix), ref(result_matrix_pararell), n);
 
     for (i = 0; i < threads_num; i++) {
         threads[i].join();
@@ -100,7 +96,7 @@ int main() {
     cout << new_duration.count()*1e-9 << endl;//*1e-9
 
     cout << "Results:" << endl;
-    //printMatrix(matrix, n);
+    //printMatrix(result_matrix_pararell, n);
 
     return 0;
 }
