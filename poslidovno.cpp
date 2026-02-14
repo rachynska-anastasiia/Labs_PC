@@ -7,7 +7,7 @@ using std::chrono::duration_cast;
 using std::chrono::high_resolution_clock;
 
 
-const int N=10;
+const int N=500;
 //створюємо вхідну матрицю та матрицю результат
 volatile int matrix[N][N];
 volatile int result_matrix_posl[N][N];
@@ -45,7 +45,7 @@ int main() {
     //заповнюємо вхідну матрицю
     generateMatrix();
 
-    printMatrix(matrix);
+    //printMatrix(matrix);
 
     //час початку роботи функції транспонування
     auto start = high_resolution_clock::now();
@@ -57,7 +57,7 @@ int main() {
     cout << duration.count()*1e-9 << endl;//*1e-9
 
     //вивід результатів
-    printMatrix(result_matrix_posl);
+    //printMatrix(result_matrix_posl);
 
     return 0;
 }

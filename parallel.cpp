@@ -8,8 +8,8 @@ using std::chrono::duration_cast;
 using std::chrono::high_resolution_clock;
 using std::thread;
 
-static const int threads_num = 8;
-const int N=10;
+static const int threads_num = 352;
+const int N=15000;
 //створюємо вхідну матрицю та матрицю результат
 volatile int matrix[N][N];
 volatile int result_matrix_pararell[N][N];
@@ -17,7 +17,7 @@ volatile int result_matrix_pararell[N][N];
 static void task(int beginning,  int end) {
     for (int i = beginning; i < end; i++) {
         for (int j = 0; j < N; j++) {
-            result_matrix_pararell[j][i] = matrix[i][j];
+            result_matrix_pararell[i][j] = matrix[j][i];
         }
     }
 }
@@ -42,11 +42,9 @@ void generateMatrix() {
 int main() {
 
     generateMatrix();
-    printMatrix(matrix);
+    //printMatrix(matrix);
 
     thread threads[threads_num];
-
-    auto new_start = high_resolution_clock::now();
 
     int size, i;
     size = int(N / threads_num);
@@ -57,6 +55,8 @@ int main() {
     }
     threads[threads_num-1] = thread(task, i*size, N);
 
+    auto new_start = high_resolution_clock::now();
+
     for (i = 0; i < threads_num; i++) {
         threads[i].join();
     }
@@ -65,7 +65,7 @@ int main() {
     auto new_duration = duration_cast<nanoseconds>(new_stop - new_start);
     cout << new_duration.count()*1e-9 << endl;//*1e-9
 
-    printMatrix(result_matrix_pararell);
+    //printMatrix(result_matrix_pararell);
 
     return 0;
 }
