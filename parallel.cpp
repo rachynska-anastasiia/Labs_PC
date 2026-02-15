@@ -8,8 +8,8 @@ using std::chrono::duration_cast;
 using std::chrono::high_resolution_clock;
 using std::thread;
 
-static const int threads_num = 352;
-const int N=15000;
+static const int threads_num =8;
+const int N=2000;
 //створюємо вхідну матрицю та матрицю результат
 volatile int matrix[N][N];
 volatile int result_matrix_pararell[N][N];
@@ -49,13 +49,14 @@ int main() {
     int size, i;
     size = int(N / threads_num);
 
+    auto new_start = high_resolution_clock::now();
 
     for (i = 0; i < threads_num-1; i++) {
         threads[i] = thread(task, i*size, (i+1)*size);
     }
     threads[threads_num-1] = thread(task, i*size, N);
 
-    auto new_start = high_resolution_clock::now();
+
 
     for (i = 0; i < threads_num; i++) {
         threads[i].join();

@@ -7,7 +7,7 @@ using std::chrono::duration_cast;
 using std::chrono::high_resolution_clock;
 
 
-const int N=500;
+const int N=15000;
 //створюємо вхідну матрицю та матрицю результат
 volatile int matrix[N][N];
 volatile int result_matrix_posl[N][N];
