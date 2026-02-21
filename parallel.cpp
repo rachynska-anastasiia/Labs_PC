@@ -8,8 +8,8 @@ using std::chrono::duration_cast;
 using std::chrono::high_resolution_clock;
 using std::thread;
 
-static const int threads_num =8;
-const int N=2000;
+static const int threads_num =352;
+const int N=15000;
 //створюємо вхідну матрицю та матрицю результат
 volatile int matrix[N][N];
 volatile int result_matrix_pararell[N][N];
@@ -40,7 +40,6 @@ void generateMatrix() {
 }
 
 int main() {
-
     generateMatrix();
     //printMatrix(matrix);
 
