@@ -7,6 +7,8 @@ using std::chrono::nanoseconds;
 using std::chrono::duration_cast;
 using std::chrono::high_resolution_clock;
 
+
+
 void calculations(int& sum, int& min, vector<int>& numbers) {
     for (int i = 0; i < numbers.size(); i++) {
         if (numbers[i] % 2) {
@@ -21,15 +23,10 @@ int main() {
 
     cout << "Enter size of array: ";
     cin >> n;
-
     cout << "Enter left border of array: ";
     cin >> left_border;
-
-    right_border = left_border - 1;
-    while (left_border > right_border) {
-        cout << "Enter right border of array: ";
-        cin >> right_border;
-    }
+    cout << "Enter right border of array: ";
+    cin >> right_border;
 
     vector<int> numbers(n);
     for (int i = 0; i < n; i++) {
