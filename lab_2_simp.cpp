@@ -7,45 +7,45 @@ using std::chrono::nanoseconds;
 using std::chrono::duration_cast;
 using std::chrono::high_resolution_clock;
 
+const int N = 10000;
+int number[N];
 
-
-void calculations(int& sum, int& min, vector<int>& numbers) {
-    for (int i = 0; i < numbers.size(); i++) {
-        if (numbers[i] % 2) {
-            sum += numbers[i];
-            if (numbers[i]<min) min = numbers[i];
+//функція розрахунків
+void calculations(long long& sum, int& min) {
+    for (int i = 0; i < N; i++) {
+        if (number[i] % 2) {
+            sum += number[i];
+            if (number[i]<min) min = number[i];
         }
     }
 }
 
 int main() {
-    int n, left_border, right_border;
+    cout << "Simple" << endl;
+    //отримання початкових даних про масив
+    int left_border = 1, right_border = 99;
 
-    cout << "Enter size of array: ";
-    cin >> n;
-    cout << "Enter left border of array: ";
-    cin >> left_border;
-    cout << "Enter right border of array: ";
-    cin >> right_border;
-
-    vector<int> numbers(n);
-    for (int i = 0; i < n; i++) {
-        numbers[i] = rand()%(right_border-left_border) + left_border;
+    //генерація значень масиву
+    for (int i = 0; i < N; i++) {
+        number[i] = rand()%(right_border-left_border) + left_border;
     }
 
-    int sum=0, min=right_border+1;
+    //змінні для пошуку
+    long long sum=0;
+    int min=right_border+1;
 
+    //заміри часу та обрахунки
     auto start = high_resolution_clock::now();
 
-    calculations(sum, min, numbers);
+    calculations(sum, min);
 
     auto stop = high_resolution_clock::now();
     auto duration = duration_cast<nanoseconds>(stop - start);
 
-    for (int i = 0; i < n; i++) {
-        cout << numbers[i] << " ";
-    }
-    cout << "Duration = " << duration.count()*1e-9 << endl;//*1e-9
+
+    //вивід результатів
+    //for (int i = 0; i < n; i++) cout << numbers[i] << " ";
+    cout << endl << "Duration = " << duration.count()*1e-09 << endl;
     cout << "Sum = " << sum << endl;
     cout << "Min = " << min << endl;
 

@@ -17,26 +17,29 @@ atomic<long long> sum(0);
 atomic<int> minimal(0);
 
 void calculations(int begin, int end, int &right) {
-    long long global_sum;
-    int global_min;
+    long long local_sum = 0, global_sum;
+    int local_min = right, global_min;
     for (int i = begin; i < end; i++) {
         if (number[i] % 2) {
-            do {
-                global_sum = sum.load();
-            } while (!sum.compare_exchange_weak(global_sum, number[i] + global_sum));
-
-            do {
-                global_min = minimal.load();
-                if (global_min <= number[i]) break;
-            } while (!minimal.compare_exchange_weak(global_min, number[i]));
+            local_sum += number[i];
+            if (number[i] < local_min) local_min = number[i];
         }
     }
+
+    do {
+        global_sum = sum.load();
+    } while (!sum.compare_exchange_weak(global_sum, local_sum + global_sum));
+
+    do {
+        global_min = minimal.load();
+        if (global_min <= local_min) break;
+    } while (!minimal.compare_exchange_weak(global_min, local_min));
 }
 
 int main() {
     cout << "Atomic " << N << endl;
     //отримання початкових даних про масив
-    int left_border = 1, right_border = 99;
+    int left_border = 1, right_border = 5;
 
     //генерація значень масиву
     for (int i = 0; i < N; i++) {

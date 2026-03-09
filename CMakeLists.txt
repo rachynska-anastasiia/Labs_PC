@@ -11,6 +11,10 @@ add_executable(parallel parallel.cpp)
 
 add_executable(lab_2_simp lab_2_simp.cpp)
 
-add_executable(lab_2_threads lab_2_threads.cpp)
+add_executable(lab_2_mutex lab_2_mutex.cpp)
 
 add_executable(lab_2_atomic lab_2_atomic.cpp)
+
+add_executable(lab_2_atomic_optimized lab_2_atomic_optimized.cpp)
+
+add_executable(lab_2_mutex_optimized lab_2_mutex_optimized.cpp)
