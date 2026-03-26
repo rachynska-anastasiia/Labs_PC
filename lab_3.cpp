@@ -3,12 +3,10 @@
 #include <mutex>
 #include <chrono>
 #include <condition_variable>
-#include <shared_mutex>
 #include <vector>
 #include <functional>
 #include <random>
 using namespace std;
-
 
 /*
 Пул потоків обслуговується 6-ма робочими потоками. Черга задач як така
@@ -19,119 +17,97 @@ using namespace std;
 одну задачу, що, по-факту, є відсутністю черги, адже черга це одна
 активна задача).*/
 
-
-
-
-
 string generate_id() {
     auto time_now = chrono::system_clock::now();
     return  to_string(time_now.time_since_epoch().count()%int(1e7));
 }
 
-class task {
+class Task {
 public:
     string id;
     int duration;
-    task() {
+    Task() {
         id = generate_id();
         duration = 8 + rand() % 5;
     }
 
     void operator()() {
-        //cout << "Start task =" << this->id << " with duration = " << this->duration << endl;
         this_thread::sleep_for(chrono::seconds(this->duration));
-        //cout << "Stop task =" << this->id << " with duration = " << this->duration << endl;
     }
 };
 
-class thread_pool {
+class ThreadPool {
 private:
     bool is_paused = false;
-    bool initialized = false;
-    bool terminated = false;
-
-
-
-    condition_variable pausing_cv;
-
-    /*using read_write_lock = shared_mutex;
-    using read_lock = shared_lock<read_write_lock>;
-    using write_lock = unique_lock<read_write_lock>;
-    read_write_lock*/
+    bool is_initialized = false;
+    bool is_terminated = false;
     mutex global_lock;
 
 public:
     struct Worker {
         thread worker_thread;
-        task  *current_task;
-        bool working = false;
+        Task current_task;
+        bool is_working = false;
         condition_variable working_cv;
-        mutex working_mutex;
-        atomic<int> taked = 0;
+        mutex worker_mutex;
+        atomic<int> taked_stat = 0;
+        long long waiting_time = 0;
     };
     vector<Worker*> workers_array;
-    atomic<int> rejected = 0;
+    atomic<int> rejected_stat = 0;
 
-    thread_pool() = default;
+    ThreadPool() = default;
 
-    ~thread_pool() {
-        terminate();
+    ~ThreadPool() {
+        Terminate();
     }
 
-    void initialize(const int worker_count) {
+    void Initialize(const int worker_count) {
         unique_lock<mutex> lock(global_lock);
-        if (!initialized && !terminated) {
+        if (!is_initialized){
             for (int i = 0; i < worker_count; i++) {
                 Worker* worker_to_add = new Worker();
                 this->workers_array.push_back(worker_to_add);
-                worker_to_add->worker_thread = thread(&thread_pool::routine, this, worker_to_add);
+                worker_to_add->worker_thread = thread(&ThreadPool::Routine, this, worker_to_add);
             }
-            initialized = true;
+            is_initialized = true;
         }
     }
 
-    void terminate() {
+    void Terminate() {
         {
             unique_lock<mutex> lock(global_lock);
-            if (!this->working_unsafe()) {
-                workers_array.clear();
-                terminated = false;
-                initialized = false;
-                return;
-            }
-            terminated = true;
-
-            for (int i = 0; i < this->workers_array.size(); i++) {
-                this->workers_array[i]->working_cv.notify_one();
-            }
+            if (!this->Working_unsafe()) return;
+            is_terminated = true;
         }
 
-        for (int i = 0; i < this->workers_array.size(); i++) {
+        for (int i = 0; i < this->workers_array.size(); i++)
+            this->workers_array[i]->working_cv.notify_one();
+
+        for (int i = 0; i < this->workers_array.size(); i++)
             workers_array[i]->worker_thread.join();
-        }
 
+        unique_lock<mutex> lock(global_lock);
+        ShowStatistics();
+        for (int i = 0; i < this->workers_array.size(); i++)
+            delete this->workers_array[i];
+        workers_array.clear();
+        is_terminated = is_initialized = false;
+    };
+
+    void Stop() {
         {
             unique_lock<mutex> lock(global_lock);
-            workers_array.clear();
-            terminated = false;
-            initialized = false;
-        }
-
-    }
-
-    void stop() {
-        {
-            unique_lock<mutex> lock(global_lock);
-            if (!this->working_unsafe()) return;
-            terminated = true;
+            if (!this->Working_unsafe()) return;
+            is_terminated = true;
         }
 
         bool end = false;
         do{
             end = true;
             for (int i = 0; i < this->workers_array.size(); i++) {
-                unique_lock<mutex> lock(this->workers_array[i]->working_mutex);
-                if (this->workers_array[i]->working) {
+                unique_lock<mutex> lock(this->workers_array[i]->worker_mutex);
+                if (this->workers_array[i]->is_working) {
                     end = false;
                     this_thread::sleep_for(chrono::milliseconds(50));
                     break;
@@ -139,118 +115,134 @@ public:
             }
         } while (!end);
 
-        for (int i = 0; i < this->workers_array.size(); i++) {
+        for (int i = 0; i < this->workers_array.size(); i++)
             this->workers_array[i]->working_cv.notify_one();
-        }
 
-        for (int i = 0; i < this->workers_array.size(); i++) {
+
+        for (int i = 0; i < this->workers_array.size(); i++)
             workers_array[i]->worker_thread.join();
-        }
+
+        unique_lock<mutex> lock(global_lock);
+        for (int i = 0; i < this->workers_array.size(); i++)
+            delete this->workers_array[i];
         workers_array.clear();
+        is_terminated = is_initialized = false;
     }
 
-    void pause() {
-        unique_lock<mutex> lock(global_lock);
-        is_paused = true;
+    void Pause() {
+        {
+            unique_lock<mutex> lock(global_lock);
+            is_paused = true;
+        }
         cout << "Paused" << endl;
     }
 
-    void resume() {
+    void Resume() {
         {
             unique_lock<mutex> lock(global_lock);
             is_paused = false;
         }
-        pausing_cv.notify_all();
+        for (int i = 0; i < this->workers_array.size(); i++)
+            this->workers_array[i]->working_cv.notify_one();
         cout << "Resumed" << endl;
-
     }
 
-    void routine(Worker* self) {
+    void Routine(Worker* concrete_worker) {
         while (true) {
-            task new_task;
+            Task new_task;
             {
-                unique_lock<mutex> lock(self->working_mutex);
-                while ((!self->working || is_paused) && !terminated) {
-                    self->working_cv.wait(lock);
-                }
-                if (terminated && !self->working) return;
-                new_task = *(self->current_task);
-                cout << "Task " << new_task.id << " executed" << endl;
+                unique_lock<mutex> lock(concrete_worker->worker_mutex);
+                auto begin = chrono::high_resolution_clock::now();
+                while ((!concrete_worker->is_working || is_paused) && !is_terminated)
+                    concrete_worker->working_cv.wait(lock);
+
+                auto end = chrono::high_resolution_clock::now();
+                concrete_worker->waiting_time += chrono::duration_cast<chrono::seconds>(end-begin).count();
+
+                if (is_terminated && !concrete_worker->is_working) return;
+                new_task = concrete_worker->current_task;
             }
+            cout << "Task " << new_task.id << " executed" << endl;
             new_task();
+            cout << "Task " << new_task.id << " done" << endl;
             {
-                cout << "Task " << new_task.id << " done" << endl;
-                unique_lock<mutex> lock(self->working_mutex);
-                self->working=false;
-                self->current_task=nullptr;
+                unique_lock<mutex> lock(concrete_worker->worker_mutex);
+                concrete_worker->is_working=false;
             }
         }
     }
 
-    bool working() {
+    bool Working() {
         unique_lock<mutex> lock(global_lock);
-        return this->working_unsafe();
+        return this->Working_unsafe();
     }
 
-    bool working_unsafe() {
-        return initialized && !terminated;
+    bool Working_unsafe() {
+        return is_initialized && !is_terminated;
     }
 
-    bool add_task(task* new_task) {
+    bool AddTask(Task new_task) {
         unique_lock<mutex> lock(global_lock);
-        if (!initialized || terminated || is_paused) return false;
+        if (!is_initialized || is_terminated || is_paused) return false;
 
         for (int i = 0; i < this->workers_array.size(); i++) {
-            unique_lock<mutex> lock(this->workers_array[i]->working_mutex, try_to_lock);
-            if (!this->workers_array[i]->working) {
+            unique_lock<mutex> lock(this->workers_array[i]->worker_mutex);
+            if (!this->workers_array[i]->is_working) {
                 this->workers_array[i]->current_task = new_task;
+                this->workers_array[i]->is_working = true;
                 this->workers_array[i]->working_cv.notify_one();
-                this->workers_array[i]->working = true;
-                this->workers_array[i]->taked++;
+                this->workers_array[i]->taked_stat++;
                 return true;
             }
         }
-        rejected++;
+        rejected_stat++;
         return false;
+    }
 
+    void ShowStatistics() {
+        cout <<endl << "rejected = "<< this->rejected_stat << endl;
+        long long general_waiting_time = 0;
+        for (int i = 0; i < 6; i++) {
+            cout << "Worker " << i << " statistics:" << endl;
+            cout << "------taked "<< i <<" = " << this->workers_array[i]->taked_stat << endl;
+            cout << "------waiting time" << i << " = " << this->workers_array[i]->waiting_time << endl;
+            general_waiting_time += this->workers_array[i]->waiting_time;;
+        }
+        cout << "General waiting time = " << general_waiting_time << endl;
+        cout << "Average waiting time = " << general_waiting_time / 6 << endl;
     }
 
 };
 
-
-void task_generation(thread_pool& thread_pool) {
-    while (thread_pool.working()) {
-        task new_task;
-        bool result = thread_pool.add_task(&new_task);
-        if (result) {
-            cout << "Task " << new_task.id << " added" << endl;
-            continue;
-        }
-        cout << "Task " << new_task.id << " cancelled" << endl;
+void task_generation(ThreadPool& thread_pool) {
+    while (thread_pool.Working()) {
+        Task new_task;
+        bool result = thread_pool.AddTask(new_task);
+        if (result) cout << "Task " << new_task.id << " added" << endl;
+        else cout << "Task " << new_task.id << " cancelled" << endl;
         this_thread::sleep_for(chrono::seconds(2));
     }
 }
 
 int main() {
     srand(time(NULL));
-    thread_pool pool;
-    pool.initialize(6);
+    ThreadPool pool;
+    pool.Initialize(6);
 
     thread generator_thread_1(task_generation, ref(pool));
     thread generator_thread_2(task_generation, ref(pool));
 
-    this_thread::sleep_for(chrono::seconds(15));
-    pool.terminate();
+    this_thread::sleep_for(chrono::seconds(22));
+    pool.Pause();
+    this_thread::sleep_for(chrono::seconds(20));
+    pool.Resume();
+    this_thread::sleep_for(chrono::seconds(20));
+    pool.Terminate();
 
     generator_thread_1.join();
     generator_thread_2.join();
 
     cout << "work stopped" << endl;
-
-    cout <<endl << "rejected = "<< pool.rejected << endl;
-    for (int i = 0; i < 6; i++) {
-        cout << "taked "<< i <<" = " << pool.workers_array[i]->taked << endl;
-    }
 
     return 0;
 }
