@@ -13,10 +13,13 @@ add_executable(lab_2_simp lab_2_simp.cpp)
 
 add_executable(lab_2_mutex lab_2_mutex.cpp)
 
-add_executable(lab_2_atomic lab_2_atomic.cpp)
+add_executable(lab_2_atomic lab_2_atomic.cpp
+        lab_4.cpp
+)
 
 add_executable(lab_2_atomic_optimized lab_2_atomic_optimized.cpp)
 
 add_executable(lab_2_mutex_optimized lab_2_mutex_optimized.cpp)
 
 add_executable(lab_3 lab_3.cpp)
+add_executable(lab_4 lab_4.cpp)

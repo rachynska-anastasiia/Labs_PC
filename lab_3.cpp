@@ -38,9 +38,9 @@ public:
 
 class ThreadPool {
 private:
-    bool is_paused = false;
-    bool is_initialized = false;
-    bool is_terminated = false;
+    atomic<bool> is_paused = false;
+    atomic<bool> is_initialized = false;
+    atomic<bool> is_terminated = false;
     mutex global_lock;
 
 public:
@@ -77,9 +77,9 @@ public:
     void Terminate() {
         {
             unique_lock<mutex> lock(global_lock);
-            if (!this->Working_unsafe()) return;
-            is_terminated = true;
+            if (!this->Working()) return;
         }
+        is_terminated = true;
 
         for (int i = 0; i < this->workers_array.size(); i++)
             this->workers_array[i]->working_cv.notify_one();
@@ -87,20 +87,22 @@ public:
         for (int i = 0; i < this->workers_array.size(); i++)
             workers_array[i]->worker_thread.join();
 
-        unique_lock<mutex> lock(global_lock);
-        ShowStatistics();
-        for (int i = 0; i < this->workers_array.size(); i++)
-            delete this->workers_array[i];
-        workers_array.clear();
+        {
+            unique_lock<mutex> lock(global_lock);
+            ShowStatistics();
+            for (int i = 0; i < this->workers_array.size(); i++)
+                delete this->workers_array[i];
+            workers_array.clear();
+        }
         is_terminated = is_initialized = false;
-    };
+    }
 
     void Stop() {
         {
             unique_lock<mutex> lock(global_lock);
-            if (!this->Working_unsafe()) return;
-            is_terminated = true;
+            if (!this->Working()) return;
         }
+        is_terminated = true;
 
         bool end = false;
         do{
@@ -130,18 +132,12 @@ public:
     }
 
     void Pause() {
-        {
-            unique_lock<mutex> lock(global_lock);
-            is_paused = true;
-        }
+        is_paused = true;
         cout << "Paused" << endl;
     }
 
     void Resume() {
-        {
-            unique_lock<mutex> lock(global_lock);
-            is_paused = false;
-        }
+        is_paused = false;
         for (int i = 0; i < this->workers_array.size(); i++)
             this->workers_array[i]->working_cv.notify_one();
         cout << "Resumed" << endl;
@@ -157,14 +153,14 @@ public:
                     concrete_worker->working_cv.wait(lock);
 
                 auto end = chrono::high_resolution_clock::now();
-                concrete_worker->waiting_time += chrono::duration_cast<chrono::seconds>(end-begin).count();
+                concrete_worker->waiting_time += chrono::duration_cast<chrono::milliseconds>(end-begin).count();
 
                 if (is_terminated && !concrete_worker->is_working) return;
                 new_task = concrete_worker->current_task;
             }
-            cout << "Task " << new_task.id << " executed" << endl;
+            //cout << "Task " << new_task.id << " executed" << endl;
             new_task();
-            cout << "Task " << new_task.id << " done" << endl;
+            //cout << "Task " << new_task.id << " done" << endl;
             {
                 unique_lock<mutex> lock(concrete_worker->worker_mutex);
                 concrete_worker->is_working=false;
@@ -173,18 +169,13 @@ public:
     }
 
     bool Working() {
-        unique_lock<mutex> lock(global_lock);
-        return this->Working_unsafe();
-    }
-
-    bool Working_unsafe() {
         return is_initialized && !is_terminated;
     }
 
     bool AddTask(Task new_task) {
-        unique_lock<mutex> lock(global_lock);
-        if (!is_initialized || is_terminated || is_paused) return false;
 
+        if (!is_initialized || is_terminated || is_paused) return false;
+        unique_lock<mutex> gl_lock(global_lock);
         for (int i = 0; i < this->workers_array.size(); i++) {
             unique_lock<mutex> lock(this->workers_array[i]->worker_mutex);
             if (!this->workers_array[i]->is_working) {
@@ -218,8 +209,8 @@ void task_generation(ThreadPool& thread_pool) {
     while (thread_pool.Working()) {
         Task new_task;
         bool result = thread_pool.AddTask(new_task);
-        if (result) cout << "Task " << new_task.id << " added" << endl;
-        else cout << "Task " << new_task.id << " cancelled" << endl;
+        //if (result) cout << "Task " << new_task.id << " added" << endl;
+        //else cout << "Task " << new_task.id << " cancelled" << endl;
         this_thread::sleep_for(chrono::seconds(2));
     }
 }
@@ -227,22 +218,28 @@ void task_generation(ThreadPool& thread_pool) {
 int main() {
     srand(time(NULL));
     ThreadPool pool;
+    int time = 20;
     pool.Initialize(6);
 
     thread generator_thread_1(task_generation, ref(pool));
     thread generator_thread_2(task_generation, ref(pool));
 
-    this_thread::sleep_for(chrono::seconds(22));
-    pool.Pause();
-    this_thread::sleep_for(chrono::seconds(20));
-    pool.Resume();
-    this_thread::sleep_for(chrono::seconds(20));
+    this_thread::sleep_for(chrono::seconds(time));
+    //pool.Pause();
+    //this_thread::sleep_for(chrono::seconds(10));
+    //pool.Resume();
+    //this_thread::sleep_for(chrono::seconds(20));
     pool.Terminate();
 
     generator_thread_1.join();
     generator_thread_2.join();
 
+    cout << "executed for: " << time << endl;
     cout << "work stopped" << endl;
 
     return 0;
 }
+
+/*bool Working_unsafe() {
+        return is_initialized && !is_terminated;
+    }*/
