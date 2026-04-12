@@ -81,8 +81,10 @@ public:
         }
         is_terminated = true;
 
-        for (int i = 0; i < this->workers_array.size(); i++)
+        for (int i = 0; i < this->workers_array.size(); i++) {
+            unique_lock<mutex> lock(this->workers_array[i]->worker_mutex);
             this->workers_array[i]->working_cv.notify_one();
+        }
 
         for (int i = 0; i < this->workers_array.size(); i++)
             workers_array[i]->worker_thread.join();
@@ -117,8 +119,10 @@ public:
             }
         } while (!end);
 
-        for (int i = 0; i < this->workers_array.size(); i++)
+        for (int i = 0; i < this->workers_array.size(); i++) {
+            unique_lock<mutex> lock(this->workers_array[i]->worker_mutex);
             this->workers_array[i]->working_cv.notify_one();
+        }
 
 
         for (int i = 0; i < this->workers_array.size(); i++)
@@ -138,13 +142,15 @@ public:
 
     void Resume() {
         is_paused = false;
-        for (int i = 0; i < this->workers_array.size(); i++)
+        for (int i = 0; i < this->workers_array.size(); i++) {
+            unique_lock<mutex> lock(this->workers_array[i]->worker_mutex);
             this->workers_array[i]->working_cv.notify_one();
+        }
         cout << "Resumed" << endl;
     }
 
     void Routine(Worker* concrete_worker) {
-        while (true) {
+        while (!is_terminated) {
             Task new_task;
             {
                 unique_lock<mutex> lock(concrete_worker->worker_mutex);
@@ -158,9 +164,9 @@ public:
                 if (is_terminated && !concrete_worker->is_working) return;
                 new_task = concrete_worker->current_task;
             }
-            //cout << "Task " << new_task.id << " executed" << endl;
+            cout << "Task " << new_task.id << " executed" << endl;
             new_task();
-            //cout << "Task " << new_task.id << " done" << endl;
+            cout << "Task " << new_task.id << " done" << endl;
             {
                 unique_lock<mutex> lock(concrete_worker->worker_mutex);
                 concrete_worker->is_working=false;
@@ -185,6 +191,7 @@ public:
                 this->workers_array[i]->taked_stat++;
                 return true;
             }
+
         }
         rejected_stat++;
         return false;
@@ -209,8 +216,8 @@ void task_generation(ThreadPool& thread_pool) {
     while (thread_pool.Working()) {
         Task new_task;
         bool result = thread_pool.AddTask(new_task);
-        //if (result) cout << "Task " << new_task.id << " added" << endl;
-        //else cout << "Task " << new_task.id << " cancelled" << endl;
+        if (result) cout << "Task " << new_task.id << " added" << endl;
+        else cout << "Task " << new_task.id << " cancelled" << endl;
         this_thread::sleep_for(chrono::seconds(2));
     }
 }
@@ -218,17 +225,17 @@ void task_generation(ThreadPool& thread_pool) {
 int main() {
     srand(time(NULL));
     ThreadPool pool;
-    int time = 20;
+    int time = 30;
     pool.Initialize(6);
 
     thread generator_thread_1(task_generation, ref(pool));
     thread generator_thread_2(task_generation, ref(pool));
 
     this_thread::sleep_for(chrono::seconds(time));
-    //pool.Pause();
-    //this_thread::sleep_for(chrono::seconds(10));
-    //pool.Resume();
-    //this_thread::sleep_for(chrono::seconds(20));
+    pool.Pause();
+    this_thread::sleep_for(chrono::seconds(10));
+    pool.Resume();
+    this_thread::sleep_for(chrono::seconds(time));
     pool.Terminate();
 
     generator_thread_1.join();
@@ -243,3 +250,5 @@ int main() {
 /*bool Working_unsafe() {
         return is_initialized && !is_terminated;
     }*/
+
+//this_thread::sleep_for(chrono::seconds(1 + rand() % 10));
