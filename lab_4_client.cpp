@@ -9,66 +9,57 @@
 
 using namespace std;
 
-void printMatrix(vector<int> matrix, int N) {
-    for (int i = 0; i < N; i++) {
-        for (int j = 0; j < N; j++) {
-            cout << setw(4) << matrix[i*N+j] << " ";
+void printMatrix(vector<int> matrix, int total_size_matrix) {
+    for (int i = 0; i < total_size_matrix; i++) {
+        for (int j = 0; j < total_size_matrix; j++) {
+            cout << setw(4) << matrix[i*total_size_matrix+j] << " ";
         }
         cout << endl;
     }
 }
 
 void generateMatrix(vector<int>& matrix, int N) {
+    srand(time(NULL));
     for (int i = 0; i < N; i++)
         matrix[i] = rand()%100 +1;
 }
 
 int main() {
     printf("TCP CLIENT\n");
-
-    //char buff[1024];
     vector<char> packet(5);
 
-    //ініціалізація бібліотеки
     WSADATA wsa;
     WSAStartup(MAKEWORD(2,2), &wsa);
 
-    //створення сокера для клієнта
     SOCKET my_socket;
     if ((my_socket = socket(AF_INET,SOCK_STREAM, 0)) == INVALID_SOCKET) {
         cout << "Socket() error " << WSAGetLastError();
         return -1;
     }
 
-    //встановлення з'єднання
-    //отримуємо адрес сервера
     sockaddr_in dest_addr;
     dest_addr.sin_family = AF_INET;
     dest_addr.sin_port = htons(PORT);
-
     dest_addr.sin_addr.s_addr = inet_addr(SERVERADDR);
     if (dest_addr.sin_addr.s_addr == INADDR_NONE) {
         cout << "Invalid IP address" << WSAGetLastError();
         return -1;
     }
 
-    //отримали адрес сервера - намагаємося встановити з'єднання
     if (connect(my_socket, (struct sockaddr *) &dest_addr, sizeof(dest_addr))) {
         cout << "Connect error " << WSAGetLastError();
         return -1;
     }
 
-    int N, total_size_matrix;
+    int N, threads_num, total_size_matrix, temp, result;
     cout << "Enter number of rows and columns: ";
     cin >> N;
     total_size_matrix = N*N;
-    int temp = htonl(N);
+    temp = htonl(N);
     packet[0]=0x01;
     memcpy(&packet[1], &temp, sizeof(int));
-    int result = send(my_socket, packet.data(), 5, 0);
+    result = send(my_socket, packet.data(), 5, 0);
 
-
-    int threads_num;
     cout << "Enter number of threads: ";
     cin >> threads_num;
     temp = htonl(threads_num);
@@ -76,9 +67,10 @@ int main() {
     memcpy(&packet[1], &temp, sizeof(int));
     result = send(my_socket, packet.data(), 5, 0);
 
+    cout << total_size_matrix << endl;
     vector matrix(total_size_matrix, 0);
     vector result_matrix(total_size_matrix, 0);
-    generateMatrix(matrix, N);
+    generateMatrix(matrix, total_size_matrix);
     printMatrix(matrix, N);
 
     int packet_size = total_size_matrix*sizeof(int)+5;
@@ -106,14 +98,17 @@ int main() {
     send(my_socket, packet.data(), 1, 0);
     recv(my_socket, &response, 1, 0);
 
-    if (response == '1') {
+    if (response == 0x05) {
         for (int i = 0; i < total_size_matrix; i++) {
             recv(my_socket, (char*)&temp, 4, 0);
             result_matrix[i]= ntohl(temp);
         }
         printMatrix(result_matrix, N);
     }
-    
+
+    packet[0]=0x06;
+    send(my_socket, packet.data(), 1, 0);
+
     closesocket(my_socket);
     WSACleanup();
     return 0;

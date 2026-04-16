@@ -3,6 +3,9 @@ project(Labs_PC)
 
 set(CMAKE_CXX_STANDARD 20)
 
+# Додаємо бібліотеку Winsock (ws2_32) для всього проєкту
+set(WS2_32_LIB ws2_32)
+
 add_executable(Labs_PC main.cpp)
 
 #add_executable(poslidovno poslidovno.cpp)
@@ -22,5 +25,7 @@ add_executable(Labs_PC main.cpp)
 #add_executable(lab_3 lab_3.cpp)
 
 add_executable(lab_4_client lab_4_client.cpp)
+target_link_libraries(lab_4_client ${WS2_32_LIB})
 
 add_executable(lab_4_server lab_4_server.cpp)
+target_link_libraries(lab_4_server ${WS2_32_LIB})
