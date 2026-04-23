@@ -26,8 +26,11 @@ add_executable(Labs_PC main.cpp)
 
 #add_executable(lab_3 lab_3.cpp)
 
-add_executable(lab_4_client lab_4_client.cpp)
-target_link_libraries(lab_4_client ${WS2_32_LIB})
+#add_executable(lab_4_client lab_4_client.cpp)
+#target_link_libraries(lab_4_client ${WS2_32_LIB})
 
-add_executable(lab_4_server lab_4_server.cpp)
-target_link_libraries(lab_4_server ${WS2_32_LIB})
+#add_executable(lab_4_server lab_4_server.cpp)
+#target_link_libraries(lab_4_server ${WS2_32_LIB})
+
+add_executable(lab_5 lab_5.cpp)
+target_link_libraries(lab_5 ${WS2_32_LIB})
