@@ -34,3 +34,5 @@ add_executable(Labs_PC main.cpp)
 
 add_executable(lab_5 lab_5.cpp)
 target_link_libraries(lab_5 ${WS2_32_LIB})
+
+add_executable(thread_pool thread_pool.cpp)
